@@ -19,15 +19,15 @@ prospect5 <- nimbleFunction(
   run = function(N = double(0), Cab = double(0), Car = double(0), Cw = double(0), Cm = double(0),
                  dataspec_p5 = double(2), talf = double(1), t12 = double(1), t21 = double(1)) {
 
-    cc <- matrix(NA, nrow = 5, ncol = 1)
-    k <- numeric(length = 2101)
-
     Cbrown <- 0
-    cc[,] <- t(c(Cab, Car, Cbrown, Cw, Cm) / N)
 
-    k[] <- dataspec_p5[,] %*% cc[,]
+    k <- dataspec_p5[,1] * Cab/N +
+      dataspec_p5[,2] * Car/N +
+      dataspec_p5[,3] * Cbrown/N +
+      dataspec_p5[,4] * Cw/N +
+      dataspec_p5[,5] * Cm/N
 
-    trans <- (1 - k)*exp(-k) + k^2 *e1_approx(k)
+    trans <- e1_approx(k) * k^2 + (1 - k) * exp(-k)
 
     ralf <- 1 - talf
     r12 <- 1 - t12
@@ -66,16 +66,13 @@ prospect5 <- nimbleFunction(
 )
 
 run_prospect5 <- nimbleCode({
-
   Cab <- 40
   Car <- 10
   Cw <- 0.002
   Cm <- 0.001
   N <- 2
-
   reflectance[1:2101] <- prospect5(N,Cab,Car,Cw,Cm,
                              dataspec_p5[,], talf[],t12[],t21[])
-
 })
 
 Nwl <- 2101
@@ -86,14 +83,12 @@ model <- nimbleModel(run_prospect5, dimensions = list(
   t12 = c(Nwl),
   t21 = c(Nwl)
 ))
-
 model$setData(list(
   talf = rrtm:::p45_talf,
   t12 = rrtm:::p45_t12,
   t21 = rrtm:::p45_t21,
   dataspec_p5 = rrtm:::dataspec_p5
 ))
-
 model$simulate()
 
 plot(model$reflectance, type = 'l')
@@ -102,16 +97,14 @@ lines(rrtm::prospect5(
   Cbrown = 0, Cw = 0.002, Cm = 0.001
 )[["reflectance"]], col = 'red', lty = "dashed")
 
-compiled_Pmodel <- compileNimble(model, showCompilerOutput = TRUE)
-compiled_Pmodel$setData(list(
-  talf = rrtm:::p45_talf,
-  t12 = rrtm:::p45_t12,
-  t21 = rrtm:::p45_t21,
-  dataspec_p5 = rrtm:::dataspec_p5
-))
-compiled_Pmodel$simulate()
-
-plot(compiled_Pmodel$reflectance, type = 'l')
+compiled_Pmodel <- compileNimble(
+  model, prospect5, e1_approx,
+  showCompilerOutput = TRUE,
+  dirName = "nimble_cppcode",
+  projectName = "MYPROJ"
+)
+compiled_Pmodel$model$simulate()
+plot(compiled_Pmodel$model$reflectance, type = 'l')
 
 ##################################################
 # Begin my code...
