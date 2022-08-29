@@ -22,8 +22,6 @@ fit_prospect5 <- nimbleCode({
   }
 })
 
-project_name <- "MYPROJ"
-project_dir <- "nimble_cppcode"
 Nwl <- 2101
 fpm <- nimbleModel(fit_prospect5, dimensions = list(
   reflectance = Nwl,
@@ -40,15 +38,11 @@ fpm$setData(list(
   t21 = rrtm:::p45_t21,
   dataspec_p5 = rrtm:::dataspec_p5
 ))
-cfp <- compileNimble(
-  fpm, #prospect5, e1_approx,
-  dirName = project_dir,
-  projectName = project_name
-)
+cfp <- compileNimble(fpm)
 
 rmcmc <- configureMCMC(fpm)
 bmcmc <- buildMCMC(rmcmc)
-cmcmc <- compileNimble(bmcmc, projectName=project_name)
+cmcmc <- compileNimble(bmcmc, project=cfp)
 
 samps <- runMCMC(cmcmc)
 
