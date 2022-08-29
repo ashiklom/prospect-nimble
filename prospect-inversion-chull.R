@@ -1,4 +1,5 @@
 # Try single PROSPECT inversion based on convex hull of observation
+# TODO: Try custom convex hull points based on known absorption features
 source("nimble-functions.R")
 
 obs <- read.csv(
@@ -29,6 +30,7 @@ Nwl <- 2101
 stopifnot(length(obsr) == Nwl)
 
 # Compute convex hull
+# TODO: Compare results with/without 0-padding
 chid <- sort(chull(c(0, obsr, 0)))
 plot(c(0, obsr, 0), type = "l")
 points(chid, c(0, obsr, 0)[chid], col = "red", pch = 19)
