@@ -1,11 +1,14 @@
 # Try single PROSPECT inversion
 source("nimble-functions.R")
 
+sample_id <- "nasa_fft|AK01_ACRU_B|2009.csvy"
+
 obs <- read.csv(
-  "https://raw.githubusercontent.com/ashiklom/spectra_db/master/nasa_fft/spectra/nasa_fft%7CAK06_ABBA_M2%7C2009.csvy",
+  paste0("https://raw.githubusercontent.com/ashiklom/spectra_db/master/nasa_fft/spectra/", sample_id),
   comment.char = "#",
   col.names = c("wavelength", "observed")
 )
+obsr <- subset(obs, wavelength >= 400)[["observed"]]
 
 fit_prospect5 <- nimbleCode({
   N ~ T(dnorm(1.0, sd=1.0), 1.0)
@@ -23,28 +26,28 @@ fit_prospect5 <- nimbleCode({
 })
 
 Nwl <- 2101
-fpm <- nimbleModel(fit_prospect5, dimensions = list(
+dims <- list(
   reflectance = Nwl,
   obs = Nwl,
   dataspec_p5 = c(Nwl,5),
   talf = Nwl,
   t12 = Nwl,
   t21 = Nwl
-))
-fpm$setData(list(
-  obs = subset(obs, wavelength >= 400)[["observed"]],
+)
+ndata <- list(
+  obs = obsr,
   talf = rrtm:::p45_talf,
   t12 = rrtm:::p45_t12,
   t21 = rrtm:::p45_t21,
   dataspec_p5 = rrtm:::dataspec_p5
-))
-cfp <- compileNimble(fpm)
+)
 
-rmcmc <- configureMCMC(fpm)
-bmcmc <- buildMCMC(rmcmc)
-cmcmc <- compileNimble(bmcmc, project=cfp)
-
-samps <- runMCMC(cmcmc)
+samps <- nimbleMCMC(
+  fit_prospect5,
+  data = ndata,
+  dimensions = dims,
+  samplesAsCodaMCMC = TRUE
+)
 
 # Evaluate predictions
 iburn <- 2000:nrow(samps)
@@ -59,7 +62,6 @@ for (j in c("N", "Cab", "Cw", "Cm")) {
 }
 
 bestfit <- colMeans(samps[iburn, c("N", "Cab", "Car", "Cw", "Cm")])
-dev.off()
-plot(observed ~ wavelength, data = obs, type = 'l')
-lines(400:2500, do.call(rrtm::prospect5, c(as.list(bestfit), Cbrown = 0))$reflectance,
+plot(observed ~ wavelength, data = subset(obs, wavelength > 400 & wavelength < 700), type = 'l')
+lines(400:2500, do.call(rrtm::prospect5, c(as.list(bestfit), Cbrown = 0.00))$reflectance,
       col = "red")
