@@ -1,12 +1,17 @@
 # Try single PROSPECT inversion based on convex hull of observation
 # TODO: Try custom convex hull points based on known absorption features
+httpgd::hgd()
 source("nimble-functions.R")
 
 obs <- read.csv(
-  "https://raw.githubusercontent.com/ashiklom/spectra_db/master/nasa_fft/spectra/nasa_fft%7CAK06_ABBA_M2%7C2009.csvy",
+  "https://raw.githubusercontent.com/ashiklom/spectra_db/master/nasa_fft/spectra/nasa_fft|AK01_ACRU_B|2009.csvy",
   comment.char = "#",
   col.names = c("wavelength", "observed")
 )
+obsr <- subset(obs, wavelength >= 400)[["observed"]]
+plot(400:2500, obsr, type = 'l')
+Nwl <- 2101
+stopifnot(length(obsr) == Nwl)
 
 fit_prospect5_chull <- nimbleCode({
   N ~ T(dnorm(1.0, sd=1.0), 1.0, Inf)
@@ -24,16 +29,14 @@ fit_prospect5_chull <- nimbleCode({
   }
 })
 
-obsr <- subset(obs, wavelength >= 400)[["observed"]]
-plot(400:2500, obsr, type = 'l')
-Nwl <- 2101
-stopifnot(length(obsr) == Nwl)
-
 # Compute convex hull
-# TODO: Compare results with/without 0-padding
-chid <- sort(chull(c(0, obsr, 0)))
-plot(c(0, obsr, 0), type = "l")
-points(chid, c(0, obsr, 0)[chid], col = "red", pch = 19)
+# DONE: Compare results with/without 0-padding
+# This significantly exagerrates SWIR absorption features, which we probably
+# don't want.
+chx <- c(0, obsr, 0)
+chid <- sort(chull(chx))
+plot(chx, type = "l")
+points(chid, chx[chid], col = "red", pch = 19)
 
 af <- approx(chid, c(0, obsr, 0)[chid], 2:(Nwl+1))
 hull <- af$y
@@ -59,6 +62,8 @@ cfp <- compileNimble(fpm)
 rmcmc <- configureMCMC(fpm)
 bmcmc <- buildMCMC(rmcmc)
 cmcmc <- compileNimble(bmcmc, project=cfp)
+
+cfp$setData(obs = )
 
 # samps <- runMCMC(cmcmc, nburnin = 2000, niter = 15000, nchains = 3)
 samps <- runMCMC(cmcmc, samplesAsCodaMCMC = TRUE)
